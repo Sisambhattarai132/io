@@ -16,6 +16,36 @@ A tiny, self-contained LLM coding agent. One binary, 180+ providers, zero runtim
 
 ## Install
 
+### One-line install (recommended)
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/rexadbapp/io/master/install.sh | sh
+```
+
+This downloads the latest release binary for your platform and installs it to `~/.local/bin/io`. If `~/.local/bin` isn't on your PATH, the script tells you how to add it.
+
+Install to a custom directory:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/rexadbapp/io/master/install.sh | sh -s -- --prefix /usr/local/bin
+```
+
+Install a specific version:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/rexadbapp/io/master/install.sh | sh -s -- --version v0.1.0
+```
+
+### Manual download
+
+Grab the right binary from the [latest release](https://github.com/rexadbapp/io/releases/latest):
+
+```sh
+# macOS (Apple Silicon)
+curl -fsSL -o io https://github.com/rexadbapp/io/releases/latest/download/io-darwin-arm64
+chmod +x io && sudo mv io /usr/local/bin/
+```
+
 ### From source (Zig 0.16.0+)
 
 ```sh

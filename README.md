@@ -10,6 +10,7 @@ A tiny, self-contained LLM coding agent. One binary, 180+ providers, zero runtim
 - **Tool use** — read/write/edit files, list directories, grep, glob, bash execution, web search, web fetch.
 - **Streaming** — SSE streaming with retry/backoff for 429/500/502/503/504.
 - **Sessions** — auto-saved to `~/.ai/sessions.jsonl`. Resume by ID or `last`.
+- **Auto-compaction** — when the conversation approaches the context window limit, older messages are automatically summarized and compacted. Run `/compact` manually anytime.
 - **Interactive setup** — first-run wizard with searchable provider/model picker.
 - **Cross-platform** — macOS, Linux, Windows. x86_64 + ARM64.
 - **Zero dependencies** — static binaries on Linux (musl), system libcurl on macOS, built-in TLS on Windows.
@@ -94,6 +95,19 @@ io providers
 io models
 ```
 
+### In-chat commands
+
+```
+  /help     Show help
+  /model    Show current model
+  /models   Switch model for current provider
+  /login    Add or switch a provider (enter API key)
+  /logout   Remove a saved API key
+  /clear    Clear conversation context (keeps DB history)
+  /compact  Summarize and compact conversation context
+  /exit     Quit the session
+```
+
 ### Options
 
 ```
@@ -113,6 +127,8 @@ io models
   AI_API_KEY               Default API key
   AI_DATA_DIR              Data directory (default: ~/.ai)
   AI_SYSTEM_PROMPT         System prompt
+  AI_CONTEXT_WINDOW        Context window in tokens (default: 128000, 0 disables auto-compaction)
+  AI_MAX_TOKENS            Max response tokens (default: 4096)
   OPENAI_API_KEY           OpenAI key
   ANTHROPIC_API_KEY        Anthropic key
   GOOGLE_API_KEY           Google key

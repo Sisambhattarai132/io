@@ -13,6 +13,9 @@ pub const Config = struct {
     data_dir: []const u8 = "",
     max_tokens: u32 = 4096,
     temperature: f64 = 0.7,
+    /// Model context window in tokens. Auto-compaction triggers at 80%.
+    /// Override with AI_CONTEXT_WINDOW env var. 0 disables auto-compaction.
+    context_window: usize = 128_000,
 
     pub fn resolveDefaultModel(self: *Config) void {
         if (self.model.len == 0) {
@@ -93,6 +96,13 @@ pub const ConfigManager = struct {
                 self.config.max_tokens = val;
             } else |_| {}
         }
+
+        // Context window (auto-compaction threshold)
+        if (environ.get("AI_CONTEXT_WINDOW")) |cw| {
+            if (std.fmt.parseInt(usize, cw, 10)) |val| {
+                self.config.context_window = val;
+            } else |_| {}
+        }
     }
 
     pub fn ensureDataDir(self: *ConfigManager, io: std.Io) !void {
@@ -143,6 +153,10 @@ pub const ConfigManager = struct {
             } else if (std.mem.eql(u8, key, "max_tokens")) {
                 if (std.fmt.parseInt(u32, val, 10)) |t| {
                     self.config.max_tokens = t;
+                } else |_| {}
+            } else if (std.mem.eql(u8, key, "context_window")) {
+                if (std.fmt.parseInt(usize, val, 10)) |t| {
+                    self.config.context_window = t;
                 } else |_| {}
             } else if (std.mem.startsWith(u8, key, "key.")) {
                 // Per-provider key: key.<slug>=<value>
@@ -302,6 +316,7 @@ pub const ConfigManager = struct {
         try buf.print(alloc, "model={s}\n", .{self.config.model});
         try buf.print(alloc, "system_prompt={s}\n", .{self.config.system_prompt});
         try buf.print(alloc, "max_tokens={d}\n", .{self.config.max_tokens});
+        try buf.print(alloc, "context_window={d}\n", .{self.config.context_window});
 
         // Write per-provider keys.
         for (0..self.keys_len) |i| {

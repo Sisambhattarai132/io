@@ -10,6 +10,7 @@ const spinner_mod = @import("spinner.zig");
 const markdown = @import("markdown.zig");
 const registry = @import("registry.zig");
 const term = @import("term.zig");
+const compact = @import("compact.zig");
 
 const MAX_TOOL_ITERATIONS = 10;
 
@@ -49,7 +50,7 @@ const SpinLock = struct {
 /// in the autocomplete dropdown.
 fn slashCommands() []const []const u8 {
     return &.{
-        "/help", "/exit", "/quit", "/model", "/models", "/login", "/logout", "/clear",
+        "/help", "/exit", "/quit", "/model", "/models", "/login", "/logout", "/clear", "/compact",
     };
 }
 
@@ -63,6 +64,7 @@ fn slashDescriptions() []const []const u8 {
         "Log in",
         "Log out",
         "Clear screen",
+        "Compact context",
     };
 }
 
@@ -1390,6 +1392,7 @@ pub fn chatSession(
                         \\  /login    Add or switch a provider (enter API key)
                         \\  /logout   Pick a provider and remove its saved API key
                         \\  /clear    Clear conversation context (keeps DB history)
+                        \\  /compact  Summarize and compact conversation context
                         \\
                     );
                     ui.redraw();
@@ -1419,6 +1422,27 @@ pub fn chatSession(
                     for (messages.items) |m| freeMessage(alloc, m);
                     messages.clearRetainingCapacity();
                     ui.writeAgentLine("\x1b[38;5;245m  Context cleared.\x1b[0m\n");
+                    ui.redraw();
+                    continue;
+                }
+                if (std.mem.eql(u8, msg, "/compact")) {
+                    const tokens = compact.estimateTokens(messages.items, config.system_prompt);
+                    if (tokens < 1000) {
+                        var buf2: [256]u8 = undefined;
+                        const s = std.fmt.bufPrint(&buf2, "\x1b[38;5;245m  Context is small ({d} est. tokens). Nothing to compact.\x1b[0m\n", .{tokens}) catch "";
+                        ui.writeAgentLine(s);
+                        ui.redraw();
+                        continue;
+                    }
+                    ui.writeAgentLine("\x1b[38;5;245m  Compacting context...\x1b[0m\n");
+                    ui.redraw();
+                    if (compact.maybeCompact(alloc, io, config, &messages)) |result| {
+                        var buf2: [256]u8 = undefined;
+                        const s = std.fmt.bufPrint(&buf2, "\x1b[38;5;245m  Context compacted ({d} → {d} tokens).\x1b[0m\n", .{ result.before_tokens, result.after_tokens }) catch "";
+                        ui.writeAgentLine(s);
+                    } else {
+                        ui.writeAgentLine("\x1b[38;5;245m  Compaction failed (summarization error).\x1b[0m\n");
+                    }
                     ui.redraw();
                     continue;
                 }
@@ -2002,6 +2026,17 @@ fn runAgent(ctx: *AgentCtx) void {
     const io = ctx.io;
     const config = ctx.config;
     var messages = ctx.messages;
+
+    // Auto-compact if the conversation is approaching the context window.
+    if (compact.maybeCompact(alloc, io, config, messages)) |result| {
+        if (std.fmt.allocPrint(alloc,
+            "\x1b[2m  ↻ context compacted ({d} → {d} tokens)\x1b[0m\n",
+            .{ result.before_tokens, result.after_tokens },
+        )) |msg| {
+            ctx.ui.writeAgent(msg);
+            alloc.free(msg);
+        } else |_| {}
+    }
 
     var iteration: usize = 0;
     while (iteration < MAX_TOOL_ITERATIONS) {
